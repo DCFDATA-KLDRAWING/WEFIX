@@ -21,7 +21,8 @@ import {
   Hash,
   Key,
   Share,
-  PlusSquare
+  PlusSquare,
+  MoreVertical
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -107,6 +108,7 @@ function InstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(true); 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showAndroidGuide, setShowAndroidGuide] = useState(false); // 新增：控制 Android 手動教學
 
   useEffect(() => {
     // 檢查是否已經是從桌面啟動 (Standalone mode)
@@ -137,6 +139,7 @@ function InstallPrompt() {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
+      // 如果瀏覽器支援自動彈出安裝（且有準備好 manifest），就觸發原生安裝
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
@@ -144,7 +147,8 @@ function InstallPrompt() {
       }
       setDeferredPrompt(null);
     } else {
-      alert('請點擊瀏覽器選單，選擇「加到主畫面」或「安裝應用程式」來安裝。');
+      // 如果被 LINE 擋住或是條件不滿足，按下去後直接顯示手動圖文教學
+      setShowAndroidGuide(true);
     }
   };
 
@@ -171,6 +175,17 @@ function InstallPrompt() {
               <p className="text-sm font-bold text-gray-700 flex items-center gap-3">
                 <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-sm">2</span>
                 <span>向上滑動，選擇「加入主畫面」 <PlusSquare className="w-5 h-5 text-gray-600 inline ml-1 align-sub" /></span>
+              </p>
+            </div>
+          ) : showAndroidGuide ? (
+            <div className="bg-blue-50 rounded-2xl p-5 w-full text-left space-y-4 border border-blue-100 animate-in fade-in duration-300">
+              <p className="text-sm font-bold text-gray-700 flex items-center gap-3">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-sm">1</span>
+                <span>點擊螢幕右上角的「選單」 <MoreVertical className="w-5 h-5 text-gray-600 inline align-sub" /></span>
+              </p>
+              <p className="text-sm font-bold text-gray-700 flex items-center gap-3">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-sm">2</span>
+                <span>選擇「加到主畫面」或「安裝應用程式」</span>
               </p>
             </div>
           ) : (
