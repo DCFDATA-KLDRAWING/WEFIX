@@ -19,7 +19,9 @@ import {
   Download,
   FileDown,
   Hash,
-  Key
+  Key,
+  Share,
+  PlusSquare
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -69,7 +71,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// 動態資料庫路徑 (確保您在 Vercel 上的舊資料不會消失)
+// 動態資料庫路徑
 const getReportsRef = () => {
   if (typeof __app_id !== 'undefined' && __app_id) {
      return collection(db, 'artifacts', __app_id, 'public', 'data', 'repair_reports');
@@ -97,15 +99,107 @@ const getAdminDocRef = () => {
 const MAX_IMAGES = 5; 
 const ADMIN_PASSWORD = '8888'; 
 
+// ==========================================
+// 元件：加入主畫面引導 (Install Prompt)
+// ==========================================
+function InstallPrompt() {
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(true); 
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+
+  useEffect(() => {
+    // 檢查是否已經是從桌面啟動 (Standalone mode)
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    setIsStandalone(isStandaloneMode);
+
+    if (!isStandaloneMode) {
+      // 偵測是否為蘋果 iOS 設備
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      const isApple = /iphone|ipad|ipod/.test(userAgent);
+      setIsIOS(isApple);
+      
+      // 延遲一點點時間顯示，讓客戶先看到一點點網頁內容
+      setTimeout(() => setShowPrompt(true), 1500);
+    }
+
+    // 攔截 Android/Chrome 的預設安裝提示
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  if (!showPrompt || isStandalone) return null;
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowPrompt(false);
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert('請點擊瀏覽器選單，選擇「加到主畫面」或「安裝應用程式」來安裝。');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black bg-opacity-70 flex flex-col items-center justify-end p-4 pb-10 sm:justify-center backdrop-blur-sm">
+      <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <button onClick={() => setShowPrompt(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full p-1">
+          <X className="w-5 h-5" />
+        </button>
+        
+        <div className="flex flex-col items-center text-center mt-2">
+          <img src="/logo.png" alt="Logo" className="w-20 h-20 rounded-3xl shadow-lg bg-blue-600 p-1.5 mb-5" />
+          <h3 className="text-2xl font-bold text-gray-800 mb-2">將報修系統加入主畫面</h3>
+          <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+            為了提供更快速的報修體驗，強烈建議您將本系統<strong className="text-blue-600">安裝至手機桌面</strong>，未來報修免找網址！
+          </p>
+
+          {isIOS ? (
+            <div className="bg-blue-50 rounded-2xl p-5 w-full text-left space-y-4 border border-blue-100">
+              <p className="text-sm font-bold text-gray-700 flex items-center gap-3">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-sm">1</span>
+                <span>點擊瀏覽器下方的「分享」按鈕 <Share className="w-5 h-5 text-blue-600 inline ml-1 align-sub" /></span>
+              </p>
+              <p className="text-sm font-bold text-gray-700 flex items-center gap-3">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 shadow-sm">2</span>
+                <span>向上滑動，選擇「加入主畫面」 <PlusSquare className="w-5 h-5 text-gray-600 inline ml-1 align-sub" /></span>
+              </p>
+            </div>
+          ) : (
+            <button 
+              onClick={handleInstallClick}
+              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-4 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all"
+            >
+              <Download className="w-6 h-6" />
+              立即安裝至桌面
+            </button>
+          )}
+
+          <button onClick={() => setShowPrompt(false)} className="mt-6 text-sm text-gray-400 font-medium hover:text-gray-600 underline underline-offset-4">
+            稍後再說，先繼續報修
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('form'); 
   const [authLoading, setAuthLoading] = useState(true);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [isAdminMode, setIsAdminMode] = useState(false); // 新增：控制是否顯示後台入口
+  const [isAdminMode, setIsAdminMode] = useState(false); 
 
   useEffect(() => {
-    // 檢查網址是否帶有老闆專屬的隱藏參數 ?admin=true
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === 'true') {
       setIsAdminMode(true);
@@ -155,13 +249,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-20 md:pb-0">
+      {/* 插入安裝引導提示 */}
+      <InstallPrompt />
+
       <div className="bg-white shadow-sm px-4 py-3 flex justify-between items-center fixed top-0 w-full z-50 md:relative">
         <div className="flex items-center gap-2 text-blue-800 font-bold">
           <img src="/logo.png" alt="WE FIX Logo" className="w-7 h-7 rounded-md shadow-sm bg-blue-600 p-0.5" />
           <span>新峰聚工程 系統</span>
         </div>
         
-        {/* 只有使用老闆專屬網址時，才會渲染出這塊按鈕 */}
         {isAdminMode && (
           <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
             <button 
@@ -203,7 +299,6 @@ function AdminLogin({ onLoginSuccess, onCancel }) {
     setError(false);
     
     try {
-      // 從 Firebase 取得目前的密碼，若無設定則預設為 8888
       const adminDocRef = getAdminDocRef();
       const docSnap = await getDoc(adminDocRef);
       let currentPassword = ADMIN_PASSWORD;
