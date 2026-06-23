@@ -1,0 +1,20 @@
+{
+"name": "新峰聚工程報修系統",
+"short_name": "新峰聚報修",
+"start_url": "/",
+"display": "standalone",
+"background_color": "#ffffff",
+"theme_color": "#2563eb",
+"icons": [
+{
+"src": "/logo.png",
+"sizes": "192x192",
+"type": "image/png"
+},
+{
+"src": "/logo.png",
+"sizes": "512x512",
+"type": "image/png"
+}
+]
+}
