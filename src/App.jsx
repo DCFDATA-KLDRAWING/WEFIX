@@ -42,13 +42,54 @@ import {
 } from 'firebase/firestore';
 
 // ==========================================
-// Firebase 初始化設定
+// Firebase 初始化與環境動態設定
 // ==========================================
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+let config = {
+  apiKey: "AIzaSyD1yOmDPsA_4mgNpw_FmlV0A37rmveEl_k",
+  authDomain: "repairapp-b9fc9.firebaseapp.com",
+  projectId: "repairapp-b9fc9",
+  storageBucket: "repairapp-b9fc9.firebasestorage.app",
+  messagingSenderId: "744504718191",
+  appId: "1:744504718191:web:9511cd8578bf01c3b0ee9a",
+  measurementId: "G-CP5Q00LB77"
+};
+
+// 相容雲端預覽環境
+if (typeof __firebase_config !== 'undefined') {
+  try {
+    const parsed = JSON.parse(__firebase_config);
+    if (Object.keys(parsed).length > 0) {
+      config = parsed;
+    }
+  } catch (e) {}
+}
+
+const firebaseConfig = config;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+// 動態資料庫路徑 (確保您在 Vercel 上的舊資料不會消失)
+const getReportsRef = () => {
+  if (typeof __app_id !== 'undefined' && __app_id) {
+     return collection(db, 'artifacts', __app_id, 'public', 'data', 'repair_reports');
+  }
+  return collection(db, 'repair_reports');
+};
+
+const getReportDocRef = (id) => {
+  if (typeof __app_id !== 'undefined' && __app_id) {
+     return doc(db, 'artifacts', __app_id, 'public', 'data', 'repair_reports', id);
+  }
+  return doc(db, 'repair_reports', id);
+};
+
+const getAdminDocRef = () => {
+  if (typeof __app_id !== 'undefined' && __app_id) {
+     return doc(db, 'artifacts', __app_id, 'public', 'data', 'system_settings_admin');
+  }
+  return doc(db, 'system_settings', 'admin');
+};
 
 // ==========================================
 // 系統設定常數
@@ -116,7 +157,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 font-sans pb-20 md:pb-0">
       <div className="bg-white shadow-sm px-4 py-3 flex justify-between items-center fixed top-0 w-full z-50 md:relative">
         <div className="flex items-center gap-2 text-blue-800 font-bold">
-          <img src="/logo.png" alt="WE FIX Logo" className="w-7 h-7 rounded-md shadow-sm" />
+          <img src="/logo.png" alt="WE FIX Logo" className="w-7 h-7 rounded-md shadow-sm bg-blue-600 p-0.5" />
           <span>新峰聚工程 系統</span>
         </div>
         
@@ -163,7 +204,7 @@ function AdminLogin({ onLoginSuccess, onCancel }) {
     
     try {
       // 從 Firebase 取得目前的密碼，若無設定則預設為 8888
-      const adminDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'system_settings_admin');
+      const adminDocRef = getAdminDocRef();
       const docSnap = await getDoc(adminDocRef);
       let currentPassword = ADMIN_PASSWORD;
       
@@ -248,7 +289,6 @@ function RepairForm({ user }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // 使用者修改資料時，清除先前的錯誤訊息
     if (errorMsg) setErrorMsg('');
   };
 
@@ -344,7 +384,7 @@ function RepairForm({ user }) {
     setErrorMsg('');
     
     try {
-      const reportsRef = collection(db, 'artifacts', appId, 'public', 'data', 'repair_reports');
+      const reportsRef = getReportsRef();
       const todayPrefix = getTodayPrefix();
       
       const snapshot = await getDocs(reportsRef);
@@ -432,7 +472,7 @@ function RepairForm({ user }) {
             <Wrench className="w-32 h-32" />
           </div>
           <div className="relative z-10 flex items-start gap-4">
-            <img src="/logo.png" alt="WE FIX" className="w-16 h-16 rounded-2xl shadow-md border-2 border-white/20 shrink-0 bg-white" />
+            <img src="/logo.png" alt="WE FIX" className="w-16 h-16 rounded-2xl shadow-md border-2 border-white/20 shrink-0 bg-blue-600 p-1" />
             <div>
               <p className="text-blue-200 text-sm font-medium tracking-wider mb-1">新峰聚工程</p>
               <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -587,7 +627,7 @@ function AdminDashboard({ user }) {
   useEffect(() => {
     if (!user) return;
 
-    const reportsRef = collection(db, 'artifacts', appId, 'public', 'data', 'repair_reports');
+    const reportsRef = getReportsRef();
     
     const unsubscribe = onSnapshot(
       reportsRef, 
@@ -625,7 +665,7 @@ function AdminDashboard({ user }) {
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
-      const reportRef = doc(db, 'artifacts', appId, 'public', 'data', 'repair_reports', reportId);
+      const reportRef = getReportDocRef(reportId);
       await updateDoc(reportRef, { status: newStatus });
     } catch (error) {
       console.error("狀態更新失敗:", error);
@@ -637,7 +677,7 @@ function AdminDashboard({ user }) {
     if (!newPassword.trim()) return;
     
     try {
-      const adminDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'system_settings_admin');
+      const adminDocRef = getAdminDocRef();
       await setDoc(adminDocRef, { password: newPassword }, { merge: true });
       setPasswordMsg('✅ 密碼更新成功！');
       setTimeout(() => {
