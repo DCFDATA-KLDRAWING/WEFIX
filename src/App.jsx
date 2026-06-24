@@ -108,24 +108,20 @@ function InstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(true); 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [showAndroidGuide, setShowAndroidGuide] = useState(false); // 新增：控制 Android 手動教學
+  const [showAndroidGuide, setShowAndroidGuide] = useState(false);
 
   useEffect(() => {
-    // 檢查是否已經是從桌面啟動 (Standalone mode)
     const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     setIsStandalone(isStandaloneMode);
 
     if (!isStandaloneMode) {
-      // 偵測是否為蘋果 iOS 設備
       const userAgent = window.navigator.userAgent.toLowerCase();
       const isApple = /iphone|ipad|ipod/.test(userAgent);
       setIsIOS(isApple);
       
-      // 延遲一點點時間顯示，讓客戶先看到一點點網頁內容
       setTimeout(() => setShowPrompt(true), 1500);
     }
 
-    // 攔截 Android/Chrome 的預設安裝提示
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -139,7 +135,6 @@ function InstallPrompt() {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      // 如果瀏覽器支援自動彈出安裝（且有準備好 manifest），就觸發原生安裝
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
@@ -147,7 +142,6 @@ function InstallPrompt() {
       }
       setDeferredPrompt(null);
     } else {
-      // 如果被 LINE 擋住或是條件不滿足，按下去後直接顯示手動圖文教學
       setShowAndroidGuide(true);
     }
   };
@@ -215,8 +209,16 @@ export default function App() {
   const [isAdminMode, setIsAdminMode] = useState(false); 
 
   useEffect(() => {
+    // 【修改核心：設備記憶功能】
     const params = new URLSearchParams(window.location.search);
+    
+    // 如果網址有帶密碼 ?admin=true，就在這台設備留下「老闆」記號
     if (params.get('admin') === 'true') {
+      setIsAdminMode(true);
+      localStorage.setItem('isWefixOwner', 'true');
+    } 
+    // 如果網址沒有密碼，但這台設備以前留過記號，一樣顯示後台
+    else if (localStorage.getItem('isWefixOwner') === 'true') {
       setIsAdminMode(true);
     }
 
